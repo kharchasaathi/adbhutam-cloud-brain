@@ -99,7 +99,7 @@ app.get("/api/ping", (req, res) => {
 
 // Chat API
 app.post("/api/chat", async (req, res) => {
-  const { message, context } = req.body || {};
+  const { message, context, files } = req.body || {};
   if (!message) return res.status(400).json({ error: "message missing" });
 
   try {
