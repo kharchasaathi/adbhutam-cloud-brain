@@ -64,10 +64,25 @@ async function runBrain(message, context = {}, files = []) {
   log("user", message);
 
   // If files are attached → run file-analyzer mode
-  if (files.length > 0) {
-    return await analyzeFiles(files, message);
+  async function analyzeFiles(files, userMessage) {
+  let final = "📂 **Files received:**\n";
+
+  for (let f of files) {
+    const base64Data = f.data.split(",")[1];
+    const buffer = Buffer.from(base64Data, "base64");
+    const originalText = buffer.toString("utf8");
+
+    const lang = detectLanguage(f.name, originalText);
+    const fixedText = autoFixCode(originalText, lang);
+    const filePath = createFixedFile(f.name, fixedText);
+
+    final += `\n### 📌 **${f.name}** (${lang})\n`;
+    final += `🛠 Auto-Fixed File Ready\n`;
+    final += `⬇ Download: https://adbhutam-brain.onrender.com/download?file=${encodeURIComponent(filePath)}\n`;
   }
 
+  return final;
+}
   // === regular text queries ===
   const intent = classifyIntent(message);
   const skill = brainMemory.skills[intent] || { name: intent, used: 0, history: [] };
@@ -202,4 +217,48 @@ function improveCode(text) {
 
   return improved;
 }
+function autoFixCode(text, lang) {
+  let fixed = text;
+
+  // Common fixes
+  fixed = fixed.replace(/\t/g, "  ");
+  fixed = fixed.replace(/ +$/gm, "");
+  fixed = fixed.replace(/\n{3,}/g, "\n\n");
+
+  // JavaScript-specific fixes
+  if (lang === "JavaScript") {
+    fixed = fixed.replace(/var /g, "let ");
+    fixed = fixed.replace(/==([^=])/g, " ===$1");
+  }
+
+  // HTML-specific fixes
+  if (lang === "HTML") {
+    if (!fixed.includes("<html")) {
+      fixed = "<!DOCTYPE html>\n<html>\n" + fixed + "\n</html>";
+    }
+  }
+
+  return fixed;
+}
+const fs = require("fs");
+const path = require("path");
+
+function createFixedFile(originalName, text) {
+  const fixedName = originalName.replace(/\.(.*)/, "_fixed.$1");
+  const savePath = path.join(__dirname, "fixed_files");
+
+  if (!fs.existsSync(savePath)) fs.mkdirSync(savePath);
+
+  const filePath = path.join(savePath, fixedName);
+  fs.writeFileSync(filePath, text, "utf8");
+
+  return filePath;
+}
+app.get("/download", (req, res) => {
+  const file = req.query.file;
+  if (!file) return res.status(400).send("File missing");
+
+  res.download(file);
+});
+
 
