@@ -100,10 +100,13 @@ app.get("/api/ping", (req, res) => {
 // Chat API
 app.post("/api/chat", async (req, res) => {
   const { message, context, files } = req.body || {};
-  if (!message) return res.status(400).json({ error: "message missing" });
+
+  if (!message && !files) {
+    return res.status(400).json({ error: "message or files missing" });
+  }
 
   try {
-    const reply = await runBrain(message, context || {});
+    const reply = await runBrain(message, context || {}, files || []);
     res.json({ reply });
   } catch (e) {
     res.status(500).json({ error: "Brain exception", details: e.message });
