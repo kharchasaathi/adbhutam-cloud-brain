@@ -180,6 +180,27 @@ function createFixedFile(originalName, text) {
 
   return filePath;
 }
+// Wikipedia Proxy API (No CORS, No Block)
+app.get("/api/wiki", async (req, res) => {
+  try {
+    const q = req.query.q;
+    if (!q) return res.status(400).json({ error: "Query missing" });
+
+    const url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(q);
+
+    const r = await fetch(url);
+    if (!r.ok) return res.json({ error: "Wikipedia fetch failed" });
+
+    const data = await r.json();
+    res.json({
+      title: data.title,
+      extract: data.extract
+    });
+
+  } catch (e) {
+    res.json({ error: "Wiki Proxy Error", details: e.message });
+  }
+});
 
 // Download Route
 app.get("/download", (req, res) => {
