@@ -60,10 +60,16 @@ async function fetchKnowledge(query) {
 }
 
 // Core brain
-async function runBrain(message, context = {}) {
+async function runBrain(message, context = {}, files = []) {
   log("user", message);
-  const intent = classifyIntent(message);
 
+  // If files are attached → run file-analyzer mode
+  if (files.length > 0) {
+    return await analyzeFiles(files, message);
+  }
+
+  // === regular text queries ===
+  const intent = classifyIntent(message);
   const skill = brainMemory.skills[intent] || { name: intent, used: 0, history: [] };
   skill.used++;
   skill.history.push(message);
@@ -72,24 +78,24 @@ async function runBrain(message, context = {}) {
   if (intent === "knowledge_query") return await fetchKnowledge(message);
 
   if (intent === "debugger")
-    return "🔍 Debug mode ON.\nనీ code పంపు. నేను line-wise explain చేస్తాను.";
+    return "🔍 Debug mode ON.\nనీ code పంపు (HTML/JS/CSS/Python etc). నేను line-wise explain చేస్తాను.";
 
   if (intent === "repair_engine")
-    return "🛠 Repair Engine: bug ఉన్న code పంపు. నేను analyse చేసి fixed version ఇస్తాను.";
+    return "🛠 Repair Engine ready.\nBug ఉన్న code పంపు.";
 
   if (intent === "frontend_builder")
-    return "🎨 Frontend Builder: నీ UI structure అడుగు, నేను clean HTML/CSS/JS code ఇస్తాను.";
+    return "🎨 Frontend Builder ready.\nUI structure అడుగు.";
 
   if (intent === "backend_builder")
-    return "🛠 Backend Builder: Express APIs + DB structures కోసం sample కోడ్ ఇస్తాను.";
+    return "🛠 Backend Builder ready.\nAPI / DB design అడుగు.";
 
   if (intent === "project_creator")
-    return "📦 Project Creator: నీ app idea చెప్పు. నేను folders/files structure design చేస్తాను.";
+    return "📦 Project Creator ready.\nనీ app idea చెప్పు.";
 
   if (intent === "improver")
-    return "⚙ Improver Mode: code పంపు. నేను performance + readabilityగా upgrade చేస్తాను.";
+    return "⚙ Improver Mode ready.\nCode పంపు.";
 
-  return "🤖 General Mode: నీ instruction చూశాను. ఇంకాస్త clearly అడుగు బ్రో!";
+  return "🤖 General Mode: instruction చెప్పు బ్రో.";
 }
 
 // Health check
