@@ -49,17 +49,15 @@ function classifyIntent(text = "") {
 // Wikipedia API
 async function fetchKnowledge(query) {
   try {
-    const url =
-      "https://en.wikipedia.org/api/rest_v1/page/summary/" +
-      encodeURIComponent(query);
-
-    const r = await fetch(url);
-    if (!r.ok) return "❌ Wikipedia fetch failed.";
+    const proxyURL = "https://adbhutam-brain.onrender.com/api/wiki?q=" + encodeURIComponent(query);
+    const r = await fetch(proxyURL);
 
     const data = await r.json();
-    return `📘 ${data.title}\n\n${data.extract || "No summary."}`;
+    if (data.error) return "❌ Wikipedia fetch failed.";
+
+    return `📘 **${data.title}**\n\n${data.extract}`;
   } catch (e) {
-    return "⚠ Knowledge API error: " + e.message;
+    return "⚠ Wikipedia error: " + e.message;
   }
 }
 
