@@ -123,3 +123,83 @@ app.post("/api/chat", async (req, res) => {
 app.listen(PORT, () => {
   console.log("🚀 Adbhutam Cloud Brain running on port " + PORT);
 });
+async function analyzeFiles(files, userMessage) {
+  let output = "📂 **Files received:**\n";
+
+  let analysis = [];
+
+  for (let f of files) {
+    output += `- ${f.name} (${Math.round(f.size/1024)} KB)\n`;
+
+    // Extract plain text from base64
+    const base64Data = f.data.split(",")[1];
+    const buffer = Buffer.from(base64Data, "base64");
+    const text = buffer.toString("utf8");
+
+    const lang = detectLanguage(f.name, text);
+
+    const errors = findErrors(text);
+    const improved = improveCode(text);
+
+    analysis.push({
+      file: f.name,
+      language: lang,
+      errors,
+      improved
+    });
+  }
+
+  // Build final response
+  let final = output + "\n";
+
+  for (let a of analysis) {
+    final += `\n📌 **${a.file}** (${a.language})\n`;
+    final += `\n❗ **Detected Errors:**\n${a.errors}\n`;
+    final += `\n✨ **Improved Version:**\n${a.improved}\n`;
+  }
+
+  return final;
+}
+function detectLanguage(filename, text) {
+  const ext = filename.split(".").pop().toLowerCase();
+
+  if (ext === "html") return "HTML";
+  if (ext === "css") return "CSS";
+  if (ext === "js") return "JavaScript";
+  if (ext === "json") return "JSON";
+  if (ext === "py") return "Python";
+  if (ext === "java") return "Java";
+
+  if (text.includes("function") || text.includes("=>")) return "JavaScript";
+  if (text.includes("<html")) return "HTML";
+
+  return "Unknown";
+}
+function findErrors(text) {
+  let lines = text.split("\n");
+
+  let errors = [];
+
+  lines.forEach((line, i) => {
+    if (line.includes("<<") || line.includes(">>")) {
+      errors.push(`Line ${i+1}: Invalid symbols (<< >>)`);
+    }
+    if (line.includes("require(") && !line.includes("const")) {
+      errors.push(`Line ${i+1}: 'require' used incorrectly`);
+    }
+    if (line.includes("=") && line.trim().startsWith("=")) {
+      errors.push(`Line ${i+1}: Assignment operator error`);
+    }
+  });
+
+  return errors.length ? errors.join("\n") : "No bugs found 🎉";
+}
+function improveCode(text) {
+  let improved = text
+    .replace(/\t/g, "  ")          // tabs → spaces
+    .replace(/ +$/gm, "")          // trailing spaces remove
+    .replace(/\n{3,}/g, "\n\n");   // multiple blank lines reduce
+
+  return improved;
+}
+
