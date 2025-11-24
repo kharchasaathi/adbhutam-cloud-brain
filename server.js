@@ -7,8 +7,8 @@ const fetch = require("node-fetch");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-// 🛑 CORRECTION: API Key must be wrapped in quotes
-const OPENAI_API_KEY = "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";
+// 🟢 CORRECTION: New API Key wrapped in double quotes
+const OPENAI_API_KEY = "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";
 
 // Basic in-memory logs (optional)
 const brainMemory = {
@@ -30,6 +30,7 @@ function log(kind, payload) {
 // ------------ OpenAI helper ------------
 
 async function callOpenAI(messages) {
+  // OPENAI_API_KEY ఇప్పుడు స్ట్రింగ్ (string) కాబట్టి, ఈ చెక్ పాస్ అవుతుంది.
   if (!OPENAI_API_KEY) {
     console.error("OPENAI_API_KEY missing");
     return "⚠ Server config error: OPENAI_API_KEY సెటప్ చేయలేదు.";
@@ -53,6 +54,7 @@ async function callOpenAI(messages) {
     if (!res.ok) {
       const text = await res.text();
       console.error("OpenAI error:", res.status, text.slice(0, 500));
+      // 401 error దీని తర్వాత రాకూడదు (కీ సరైనదైతే)
       return "❌ AI backend error (" + res.status + ").";
     }
 
