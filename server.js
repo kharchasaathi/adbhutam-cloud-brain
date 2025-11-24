@@ -1,5 +1,5 @@
 // server.js
-// Adbhutam Cloud Brain – simple, stable version
+// Adbhutam Cloud Brain – LLM backend (OpenAI GPT-4o-mini)
 
 const express = require("express");
 const cors = require("cors");
@@ -7,170 +7,169 @@ const fetch = require("node-fetch");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-// allow JSON upto ~10MB (files base64 కోసం)
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-
-// ----------------- MEMORY -----------------
+// Basic in-memory logs (optional)
 const brainMemory = {
-  logs: [],
-  skills: {}
+  logs: []
 };
 
-function log(type, text) {
-  brainMemory.logs.push({ type, text, time: Date.now() });
-  if (brainMemory.logs.length > 500) brainMemory.logs.shift();
+app.use(cors());
+app.use(express.json({ limit: "10mb" })); // files కోసం కొంచెం పెంచాం
+
+function log(kind, payload) {
+  brainMemory.logs.push({
+    kind,
+    time: new Date().toISOString(),
+    payload
+  });
+  if (brainMemory.logs.length > 200) brainMemory.logs.shift();
 }
 
-// ----------------- INTENT -----------------
-function classifyIntent(text = "") {
-  const t = text.toLowerCase();
+// ------------ OpenAI helper ------------
 
-  if (
-    t.includes("what is") ||
-    t.includes("who is") ||
-    t.includes("explain") ||
-    t.includes("గురించి") ||
-    t.includes("తెలుసుకోవాలి") ||
-    t.includes("information") ||
-    t.includes("details")
-  ) return "knowledge_query";
-
-  if (t.includes("error") || t.includes("debug")) return "debugger";
-  if (t.includes("html") || t.includes("css") || t.includes("javascript")) return "frontend_builder";
-  if (t.includes("backend") || t.includes("api") || t.includes("node")) return "backend_builder";
-  if (t.includes("project")) return "project_creator";
-  if (t.includes("improve")) return "improver";
-  if (t.includes("repair") || t.includes("fix") || t.includes("ఎర్రర్")) return "repair_engine";
-
-  return "general_skill";
-}
-
-// ----------------- WIKIPEDIA -----------------
-async function fetchKnowledge(query) {
-  try {
-    const url =
-      "https://en.wikipedia.org/api/rest_v1/page/summary/" +
-      encodeURIComponent(query);
-
-    const r = await fetch(url);
-    if (!r.ok) {
-      return "❌ Wikipedia fetch failed. (status " + r.status + ")";
-    }
-    const data = await r.json();
-    return `📘 **${data.title}**\n\n${data.extract || "No summary."}`;
-  } catch (e) {
-    return "⚠ Wikipedia fetch failed: " + e.message;
+async function callOpenAI(messages) {
+  if (!OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY missing");
+    return "⚠ Server config error: OPENAI_API_KEY సెటప్ చేయలేదు.";
   }
-}
 
-// ----------------- CORE BRAIN -----------------
-async function runBrain(message = "", context = {}, files = []) {
-  log("user", message || "[no message]");
-  console.log("Incoming:", { message, fileCount: files.length });
-
-  // 1) अगर files ఉంటే → simple file summary
-  if (files && files.length > 0) {
-    let out = "📂 **Files received:**\n";
-    files.forEach((f, i) => {
-      const sizeKB = f.size ? Math.round(f.size / 1024) : "?";
-      out += `\n${i + 1}. ${f.name} (${sizeKB} KB)`;
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + OPENAI_API_KEY
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages,
+        temperature: 0.4,
+        max_tokens: 900
+      })
     });
 
-    out +=
-      "\n\n🔎 ఈ version లో నేను files names + size మాత్రమే చూపిస్తున్నా.\n" +
-      "Next upgrades లో actual code auto-fix + download links ఇస్తాను.";
-    log("brain", out);
-    return out;
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("OpenAI error:", res.status, text.slice(0, 500));
+      return "❌ AI backend error (" + res.status + ").";
+    }
+
+    const data = await res.json();
+    const content =
+      data.choices &&
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content;
+
+    return (content || "⚠ Empty reply from AI.").trim();
+  } catch (err) {
+    console.error("OpenAI exception:", err);
+    return "⚠ AI backend exception: " + err.message;
+  }
+}
+
+// ------------ File handling helpers ------------
+
+function buildFileContext(files = []) {
+  if (!files || !files.length) return "";
+
+  // max 3 files, ఒక్కొక్కటి 4000 chars వరకు
+  const limited = files.slice(0, 3);
+  let out = "User attached some files. For each file, read the content and use it while answering.\n";
+
+  for (const f of limited) {
+    try {
+      const base64 = (f.data || "").split(",")[1] || "";
+      const buffer = Buffer.from(base64, "base64");
+      let text = buffer.toString("utf8");
+
+      if (text.length > 4000) {
+        text = text.slice(0, 4000) + "\n...[truncated]...";
+      }
+
+      out += `\n------------------------------\n`;
+      out += `File name: ${f.name}\n`;
+      out += `Type: ${f.type}\n`;
+      out += `Size: ${Math.round((f.size || 0) / 1024)} KB\n`;
+      out += `Content:\n${text}\n`;
+    } catch (e) {
+      console.error("File decode error:", e);
+    }
   }
 
-  // 2) Normal text query
-  const intent = classifyIntent(message || "");
-  const skill = brainMemory.skills[intent] || { name: intent, used: 0, history: [] };
-  skill.used++;
-  skill.history.push(message || "");
-  brainMemory.skills[intent] = skill;
+  return out;
+}
 
-  let reply;
+// ------------ Core brain ------------
 
-  switch (intent) {
-    case "knowledge_query":
-      reply = await fetchKnowledge(message);
-      break;
+const SYSTEM_PROMPT = `
+You are "Adbhutam Brain" – a coding + teaching assistant for one power user.
+- Answer in a mix of Telugu + simple English, like the user writes.
+- You can:
+  • explain any topic clearly
+  • design UI structures (HTML/CSS/JS)
+  • write and debug code (JS, HTML, CSS, Node, etc.)
+  • read attached files/code and find errors, then give clean fixed code.
+- When user asks about code/UI, always return final answer inside proper code blocks.
+- Be concise but helpful. కొంచెం friendly tone ఉండాలి.
+`;
 
-    case "debugger":
-      reply =
-        "🔍 Debug mode ON.\n" +
-        "నీ code (HTML/JS/CSS etc) text గా paste చెయ్యి. line-wise explain చేస్తాను.";
-      break;
+async function runBrain(message, files = []) {
+  const fileContext = buildFileContext(files);
 
-    case "repair_engine":
-      reply =
-        "🛠 Repair Engine ready.\n" +
-        "Bug ఉన్న code పంపు, reason + fixed version ఇస్తాను.";
-      break;
-
-    case "frontend_builder":
-      reply =
-        "🎨 Frontend Builder ready.\n" +
-        "Chat UI, dashboard UI లాంటివి అడుగు, నేను clean HTML/CSS/JS code ఇస్తాను.";
-      break;
-
-    case "backend_builder":
-      reply =
-        "🛠 Backend Builder ready.\n" +
-        "Express APIs, DB structureల కోసం sample కోడ్ ఇస్తాను.";
-      break;
-
-    case "project_creator":
-      reply =
-        "📦 Project Creator ready.\n" +
-        "నీ app idea చెప్పు (ఉదా: 'mobile shop inventory app'), నేను పూర్తి folders/files structure design చేస్తాను.";
-      break;
-
-    case "improver":
-      reply =
-        "⚙ Improver Mode ready.\n" +
-        "నీ ఉన్న code పంపు, నేను performance + readabilityగా upgrade చేస్తాను.";
-      break;
-
-    default:
-      reply =
-        "🤖 General Mode: నీ instruction చూశాను.\n" +
-        "Example: 'simple login page రాయ్', 'ఈ error explain చెయ్యి', 'HTML basics చెప్పు' వంటివి అడుగు బ్రో.";
+  let userContent = message || "";
+  if (fileContext) {
+    userContent +=
+      "\n\n[Attached files for context below. Use them while answering.]\n" +
+      fileContext;
   }
 
-  log("brain", reply);
+  const reply = await callOpenAI([
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: userContent }
+  ]);
+
+  log("reply", { message, hasFiles: !!files.length });
   return reply;
 }
 
-// ----------------- ROUTES -----------------
+// ------------ Routes ------------
+
+// Health check
 app.get("/api/ping", (req, res) => {
   res.json({
     ok: true,
-    mode: "Adbhutam Cloud Brain",
-    skills: Object.keys(brainMemory.skills)
+    mode: "Adbhutam Cloud Brain (LLM)",
+    logs: brainMemory.logs.length
   });
 });
 
+// Main chat
 app.post("/api/chat", async (req, res) => {
-  const { message, context, files } = req.body || {};
+  const { message = "", files = [] } = req.body || {};
 
-  if (!message && (!files || files.length === 0)) {
+  if (!message && (!files || !files.length)) {
     return res.status(400).json({ error: "message or files missing" });
   }
 
+  log("request", {
+    messageSnippet: message.slice(0, 200),
+    filesCount: (files || []).length
+  });
+
   try {
-    const reply = await runBrain(message, context || {}, files || []);
+    const reply = await runBrain(message, files);
     res.json({ reply });
   } catch (e) {
-    console.error("Brain error:", e);
-    res.status(500).json({ error: "Brain exception", details: e.message });
+    console.error("Brain fatal error:", e);
+    res
+      .status(500)
+      .json({ error: "Brain exception", details: e.message || String(e) });
   }
 });
 
-// ----------------- START -----------------
+// Start server
 app.listen(PORT, () => {
   console.log("🚀 Adbhutam Cloud Brain running on port " + PORT);
 });
