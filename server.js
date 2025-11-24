@@ -7,7 +7,8 @@ const fetch = require("node-fetch");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const OPENAI_API_KEY = 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
+// 🛑 CORRECTION: API Key must be wrapped in quotes
+const OPENAI_API_KEY = "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";
 
 // Basic in-memory logs (optional)
 const brainMemory = {
