@@ -1,14 +1,18 @@
 {
   "name": "adbhutam-cloud-brain",
   "version": "1.0.0",
-  "main": "server.js",
-  "type": "commonjs",
+  "description": "Adbhutam Brain + LLM API backend",
+  "type": "module",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^3.3.2"
   }
 }
