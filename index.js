@@ -1,117 +1,72 @@
 /**
  * index.js
  *
- * Adbhutam – Brain + API Server
- * -----------------------------
- * - Preserves FULL old pipeline behavior
- * - Adds Express server for Railway
- * - Adds LLM (Gemini / OpenAI) support
- * - Works for UI + API + Future apps
+ * Adbhutam – Cloud Brain + API Server
+ * ----------------------------------
+ * - NO UI code
+ * - NO missing imports
+ * - Deterministic BrainCore
+ * - Railway compatible
+ * - Optional LLM test endpoint
  */
 
 import express from "express";
-
-// 🧠 Brain pipeline
-import Understand from "./core/001_understand.js";
-import Decide from "./core/002_decide.js";
-import Plan from "./core/003_plan.js";
-import Execute from "./core/004_execute.js";
-import Validate from "./core/005_validate.js";
-import Finalize from "./core/006_finalize.js";
-import Response from "./core/007_response.js";
-
-// 🔌 LLM Gateway
+import BrainCore from "./brain-core.js";
 import { callLLM } from "./server/llmGateway.js";
 
 /* ------------------------------------------------------------------
-   🧠 CORE BRAIN FUNCTION (OLD BEHAVIOR 100% PRESERVED)
+   🧠 CORE BRAIN RUNNER
 ------------------------------------------------------------------ */
 
 async function runAdbhutam(rawText) {
-
   if (!rawText || String(rawText).trim() === "") {
     return {
-      stage: "ui",
       error: "Input is empty",
       reply: "Please type something first."
     };
   }
 
-  // 001 – Understand
-  const u = Understand.process(rawText);
-
-  // 002 – Decide
-  const d = Decide.process(u);
-
-  // 003 – Plan
-  const p = Plan.process(d, u);
-
-  // 004 – Execute
-  const e = Execute.process(p);
-
-  // 005 – Validate
-  const v = Validate.process(e);
-
-  // 006 – Finalize
-  const f = Finalize.process(v);
-
-  const pipelineResult = {
-    pipeline: [
-      "001_understand",
-      "002_decide",
-      "003_plan",
-      "004_execute",
-      "005_validate",
-      "006_finalize"
-    ],
-    result: f
-  };
-
-  // 🧠 LLM-generated human reply
-  const replyText = await Response.process(pipelineResult, rawText);
+  // Deterministic brain (NO crash, NO AI dependency)
+  const result = BrainCore.process(rawText);
 
   return {
-    ...pipelineResult,
-    reply: replyText
+    pipeline: ["understand", "decide"],
+    result
   };
 }
 
 /* ------------------------------------------------------------------
-   🌐 BROWSER COMPATIBILITY (NO BREAKAGE)
------------------------------------------------------------------- */
-
-if (typeof window !== "undefined") {
-  window.runAdbhutam = runAdbhutam;
-}
-
-/* ------------------------------------------------------------------
-   🚀 EXPRESS SERVER (FOR RAILWAY)
+   🚀 EXPRESS SERVER (RAILWAY)
 ------------------------------------------------------------------ */
 
 const app = express();
 app.use(express.json());
 
+// Root check
 app.get("/", (req, res) => {
-  res.send("Adbhutam API is running");
+  res.send("🚀 Adbhutam Cloud Brain is running");
 });
 
-// 🔍 Health check
+// Health check (Railway needs this)
 app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", service: "adbhutam-cloud-brain" });
 });
 
-// 🧠 Full brain execution via API
+// Run brain
 app.post("/run", async (req, res) => {
   try {
     const { input } = req.body;
     const output = await runAdbhutam(input);
     res.json({ ok: true, output });
   } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
+    res.status(500).json({
+      ok: false,
+      error: err.message
+    });
   }
 });
 
-// 🧪 Direct LLM test
+// Optional LLM test (only if API key exists)
 app.get("/test-llm", async (req, res) => {
   try {
     const out = await callLLM({
@@ -120,12 +75,15 @@ app.get("/test-llm", async (req, res) => {
     });
     res.json({ ok: true, out });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      ok: false,
+      error: err.message
+    });
   }
 });
 
-// 🚪 Railway port
+// Railway PORT
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("🚀 Adbhutam server running on port", PORT);
+  console.log("🚀 Adbhutam Cloud Brain running on port", PORT);
 });
