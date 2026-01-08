@@ -69,16 +69,13 @@ app.post("/run", async (req, res) => {
 // Optional LLM test (only if API key exists)
 app.get("/test-llm", async (req, res) => {
   try {
-    const out = await callLLM({
-      type: "language",
-      prompt: "Hello in Telugu"
-    });
+    const out = await callLLM(
+      "language",
+      "Hello in Telugu"
+    );
     res.json({ ok: true, out });
   } catch (err) {
-    res.status(500).json({
-      ok: false,
-      error: err.message
-    });
+    res.status(500).json({ error: err.message });
   }
 });
 
