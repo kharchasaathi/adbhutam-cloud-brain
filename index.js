@@ -1,86 +1,53 @@
 /**
  * index.js
- *
- * Adbhutam – Cloud Brain + API Server
- * ----------------------------------
- * - NO UI code
- * - NO missing imports
- * - Deterministic BrainCore
- * - Railway compatible
- * - Optional LLM test endpoint
+ * Adbhutam Cloud Brain – API Server ONLY
+ * (NO UI imports, NO core pipeline here)
  */
 
 import express from "express";
-import BrainCore from "./brain-core.js";
 import { callLLM } from "./server/llmGateway.js";
-
-/* ------------------------------------------------------------------
-   🧠 CORE BRAIN RUNNER
------------------------------------------------------------------- */
-
-async function runAdbhutam(rawText) {
-  if (!rawText || String(rawText).trim() === "") {
-    return {
-      error: "Input is empty",
-      reply: "Please type something first."
-    };
-  }
-
-  // Deterministic brain (NO crash, NO AI dependency)
-  const result = BrainCore.process(rawText);
-
-  return {
-    pipeline: ["understand", "decide"],
-    result
-  };
-}
-
-/* ------------------------------------------------------------------
-   🚀 EXPRESS SERVER (RAILWAY)
------------------------------------------------------------------- */
+import BrainCore from "./brain-core.js";
 
 const app = express();
 app.use(express.json());
 
-// Root check
+/* -------------------
+   HEALTH
+------------------- */
 app.get("/", (req, res) => {
-  res.send("🚀 Adbhutam Cloud Brain is running");
+  res.send("✅ Adbhutam Cloud Brain is running");
 });
 
-// Health check (Railway needs this)
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", service: "adbhutam-cloud-brain" });
+  res.json({ ok: true });
 });
 
-// Run brain
-app.post("/run", async (req, res) => {
-  try {
-    const { input } = req.body;
-    const output = await runAdbhutam(input);
-    res.json({ ok: true, output });
-  } catch (err) {
-    res.status(500).json({
-      ok: false,
-      error: err.message
-    });
-  }
+/* -------------------
+   BRAIN (DETERMINISTIC)
+------------------- */
+app.post("/brain", (req, res) => {
+  const { message = "" } = req.body || {};
+  const result = BrainCore.process(message);
+  res.json({ ok: true, result });
 });
 
-// Optional LLM test (only if API key exists)
-app.get("/test-llm", async (req, res) => {
+/* -------------------
+   LLM (OPTIONAL)
+------------------- */
+app.post("/llm", async (req, res) => {
   try {
-    const out = await callLLM(
-      "language",
-      "Hello in Telugu"
-    );
+    const { type, prompt } = req.body;
+    const out = await callLLM(type, prompt);
     res.json({ ok: true, out });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 
-// Railway PORT
+/* -------------------
+   START
+------------------- */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("🚀 Adbhutam Cloud Brain running on port", PORT);
+  console.log("🚀 Cloud Brain listening on", PORT);
 });
