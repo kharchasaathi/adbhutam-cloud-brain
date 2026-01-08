@@ -1,16 +1,15 @@
 /**
  * index.js
- * Adbhutam Cloud Brain – API Server ONLY
- * ------------------------------------
- * - NO UI imports
+ * Adbhutam Cloud Brain – API Server
+ * --------------------------------
  * - Deterministic BrainCore
  * - Optional LLM gateway
- * - CORS enabled (GitHub Pages compatible)
- * - Railway ready
+ * - CORS enabled (GitHub Pages safe)
+ * - Railway production ready
  */
 
 import express from "express";
-import cors from "cors";                  // ✅ ADD
+import cors from "cors";
 import BrainCore from "./brain-core.js";
 import { callLLM } from "./server/llmGateway.js";
 
@@ -20,10 +19,10 @@ const app = express();
    MIDDLEWARE
 ------------------- */
 
-// ✅ VERY IMPORTANT: allow GitHub Pages / browser access
+// ✅ Allow browser / GitHub Pages
 app.use(cors());
 
-// Parse JSON bodies
+// ✅ Parse JSON bodies
 app.use(express.json());
 
 /* -------------------
@@ -46,8 +45,14 @@ app.post("/brain", (req, res) => {
   try {
     const { message = "" } = req.body || {};
     const result = BrainCore.process(message);
-    res.json({ ok: true, result });
+
+    res.json({
+      ok: true,
+      result
+    });
   } catch (e) {
+    console.error("🧠 Brain error:", e);
+
     res.status(500).json({
       ok: false,
       error: "Brain processing failed"
@@ -56,15 +61,32 @@ app.post("/brain", (req, res) => {
 });
 
 /* -------------------
-   LLM (OPTIONAL)
+   LLM (HUMAN / CODE)
 ------------------- */
 
 app.post("/llm", async (req, res) => {
   try {
-    const { type, prompt } = req.body;
+    const {
+      type = "language", // default
+      prompt = ""
+    } = req.body || {};
+
+    if (!prompt) {
+      return res.status(400).json({
+        ok: false,
+        error: "Prompt is required"
+      });
+    }
+
     const out = await callLLM(type, prompt);
-    res.json({ ok: true, out });
+
+    res.json({
+      ok: true,
+      out
+    });
   } catch (e) {
+    console.error("🤖 LLM error:", e);
+
     res.status(500).json({
       ok: false,
       error: e.message
