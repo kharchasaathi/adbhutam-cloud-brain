@@ -152,4 +152,4 @@ BrainCore.process = function (message) {
   };
 };
 
-module.exports = BrainCore;
+export default BrainCore;
