@@ -3,7 +3,7 @@
  * Adbhutam Cloud Brain – API Server
  * --------------------------------
  * - Deterministic BrainCore
- * - Gemini LLM gateway
+ * - Gemini LLM gateway ONLY
  * - CORS enabled (GitHub Pages safe)
  * - Railway production ready
  */
@@ -19,7 +19,10 @@ const app = express();
    MIDDLEWARE
 ------------------- */
 
+// Allow browser / GitHub Pages
 app.use(cors());
+
+// Parse JSON bodies
 app.use(express.json());
 
 /* -------------------
@@ -41,6 +44,7 @@ app.get("/health", (req, res) => {
 app.post("/brain", (req, res) => {
   try {
     const { message = "" } = req.body || {};
+
     const result = BrainCore.process(message);
 
     res.json({
@@ -65,7 +69,7 @@ app.post("/llm", async (req, res) => {
   try {
     const { prompt = "" } = req.body || {};
 
-    if (!prompt) {
+    if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({
         ok: false,
         error: "Prompt is required"
