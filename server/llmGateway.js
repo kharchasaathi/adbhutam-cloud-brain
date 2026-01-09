@@ -1,66 +1,78 @@
+/**
+ * LLM Gateway (GROQ)
+ * =================
+ * - Free / fast
+ * - No credit card
+ * - Language + code both supported
+ * - Railway compatible
+ */
+
 import fetch from "node-fetch";
 
-const GEMINI_MODEL = "gemini-1.5-flash";
+/* =======================
+   GROQ CONFIG
+======================= */
+
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
+// Best general-purpose Groq model
+const GROQ_MODEL = "llama-3.1-8b-instant";
+
+/* =======================
+   MAIN FUNCTION
+======================= */
 
 export async function callLLM(prompt) {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
   // 1️⃣ ENV validation
-  if (!GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY missing in environment");
+  if (!GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY missing in environment");
   }
 
-  // 2️⃣ Prompt validation (⬅️ restored from old code)
+  // 2️⃣ Prompt validation
   if (!prompt || typeof prompt !== "string") {
     throw new Error("Prompt must be a non-empty string");
   }
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+    "https://api.groq.com/openai/v1/chat/completions",
     {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        contents: [
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a helpful, concise assistant. Reply naturally. Telugu is allowed."
+          },
           {
             role: "user",
-            parts: [{ text: prompt }]
+            content: prompt
           }
         ],
-
-        // 3️⃣ Generation tuning
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 512
-        },
-
-        // 4️⃣ Safety relaxed (important for Telugu / casual chat)
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_SEXUAL_CONTENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-        ]
+        temperature: 0.7,
+        max_tokens: 512
       })
     }
   );
 
-  // 5️⃣ Error handling
+  // 3️⃣ Error handling
   if (!response.ok) {
     const err = await response.text();
-    console.error("❌ Gemini raw error:", err);
-    throw new Error("Gemini API failed");
+    console.error("❌ Groq raw error:", err);
+    throw new Error("Groq API failed");
   }
 
   const data = await response.json();
 
-  const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const text = data?.choices?.[0]?.message?.content;
 
   if (!text) {
-    throw new Error("Empty Gemini response");
+    throw new Error("Empty Groq response");
   }
 
   return text.trim();
