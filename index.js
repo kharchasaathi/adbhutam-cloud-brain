@@ -3,7 +3,7 @@
  * Adbhutam Cloud Brain – API Server
  * --------------------------------
  * - Deterministic BrainCore
- * - Gemini LLM gateway ONLY
+ * - GROQ LLM gateway
  * - CORS enabled (GitHub Pages safe)
  * - Railway production ready
  */
@@ -62,7 +62,7 @@ app.post("/brain", (req, res) => {
 });
 
 /* -------------------
-   LLM (GEMINI ONLY)
+   LLM (GROQ ONLY)
 ------------------- */
 
 app.post("/llm", async (req, res) => {
@@ -72,7 +72,7 @@ app.post("/llm", async (req, res) => {
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({
         ok: false,
-        error: "Prompt is required"
+        error: "Prompt must be a non-empty string"
       });
     }
 
